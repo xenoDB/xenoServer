@@ -105,6 +105,10 @@ export class CoreDatabase<T> {
 
   // ------------------------------------------------------------------------------------------------------------------------
 
+  has(key: string): boolean {
+    return !!this.get(key);
+  }
+
   get(key: string): T | null {
     const res = this.#searchIndexForKey(key);
     return res ? (this.#cache.get(res.fileName)![key] as T) : null;

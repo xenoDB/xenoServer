@@ -36,6 +36,7 @@ export class DatabaseServer {
     if (!payload.path || payload.path === "." || payload.path === "..") throw new Error("Invalid path");
 
     switch (payload.method) {
+      case "HAS":
       case "GET":
       case "DELETE":
         if (!("key" in payload)) throw new Error("Missing key");
@@ -85,6 +86,10 @@ export class DatabaseServer {
     switch (PL.method) {
       case "ALL":
         ws.send(JSON.stringify({ requestId: PL.requestId, data: db.all() }));
+        break;
+
+      case "HAS":
+        ws.send(JSON.stringify({ requestId: PL.requestId, data: db.has(PL.key) }));
         break;
 
       case "GET":
