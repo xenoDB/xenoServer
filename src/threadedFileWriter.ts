@@ -1,19 +1,17 @@
 /** @format */
 
-import * as fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import { Worker, isMainThread, parentPort } from "worker_threads";
+import { resolve } from "node:path";
+import { Worker } from "worker_threads";
 
 export class ThreadedFileWriter {
   worker: Worker;
-  constructor() {
-    this.worker = new Worker(fileURLToPath(import.meta.url));
-    this.worker.on("error", (err) => console.error("FileWriter error:", err));
-  }
 
   appendFile(path: string, data: string) {
     this.worker.postMessage({ path, data });
   }
-}
 
-if (!isMainThread) parentPort?.on("message", ({ path, data }) => fs.appendFileSync(path, data));
+  constructor() {
+    this.worker = new Worker(resolve(import.meta.dirname, resolve(import.meta.dirname, "./worker.js")));
+    this.worker.on("error", (err) => console.error("FileWriter error:", err));
+  }
+}
