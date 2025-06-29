@@ -1,0 +1,5 @@
+/app
+/.envd:\Projects\Database\.vscode
+/storage
+logs.csv
+/node_modules
