@@ -1,7 +1,7 @@
 /** @format */
 
 import { resolve } from "node:path";
-import { Worker } from "worker_threads";
+import { Worker } from "node:worker_threads";
 
 export class ThreadedFileWriter {
   worker: Worker;
