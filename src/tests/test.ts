@@ -1,4 +1,4 @@
 /** @format */
 
-import { DatabaseServer } from "../databaseServer.js";
+import { DatabaseServer } from "../index.js";
 new DatabaseServer({ port: 8080, auth: "hello" });
