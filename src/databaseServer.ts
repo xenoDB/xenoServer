@@ -1,5 +1,6 @@
 /** @format */
 
+import * as fs from "node:fs";
 import { join } from "node:path";
 import { WebSocketServer } from "ws";
 import { CoreDatabase } from "./coreDatabase.js";
@@ -36,6 +37,10 @@ export class DatabaseServer {
     if (!payload.path || payload.path === "." || payload.path === "..") throw new Error("Invalid path");
 
     switch (payload.method) {
+      case "ALL":
+      case "NUKE":
+        break;
+
       case "HAS":
       case "GET":
       case "DELETE":
@@ -79,11 +84,22 @@ export class DatabaseServer {
       return ws.send(JSON.stringify({ requestId: PL.requestId, error: e.message }));
     }
 
-    PL.path = join("./", "storage", PL.path);
+    PL.path = join(
+      "./",
+      "storage",
+      !PL.path || PL.path === "." || PL.path.includes("..") ? "( Uncategorized )" : PL.path
+    );
 
     const db = this.#databases.get(PL.path) || this.#databases.set(PL.path, new CoreDatabase(PL.path)).get(PL.path)!;
 
     switch (PL.method) {
+      case "NUKE":
+        const exists = fs.existsSync(PL.path);
+        if (exists) fs.rmSync(PL.path, { recursive: true });
+        ws.send(JSON.stringify({ requestId: PL.requestId, data: exists }));
+        this.#databases.set(PL.path, new CoreDatabase(PL.path));
+        break;
+
       case "ALL":
         ws.send(JSON.stringify({ requestId: PL.requestId, data: db.all() }));
         break;

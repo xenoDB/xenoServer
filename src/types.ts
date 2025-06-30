@@ -11,7 +11,7 @@ export interface BasePayload {
 export type Payload<T = unknown> = Prettify<
   BasePayload &
     (
-      | { method: "ALL" }
+      | { method: "ALL" | "NUKE" }
       | { method: "SET"; key: string; value: T }
       | { method: "GET" | "DELETE" | "HAS"; key: string }
       | { method: "GET_MANY" | "DELETE_MANY"; keys: string[] }
