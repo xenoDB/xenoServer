@@ -1,11 +1,39 @@
 {
-  "type": "module",
+  "name": "@xenodb/server",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Blazingly fast, lightweight, and simple database server.",
+  "license": "MIT",
+  "author": "XenoDB",
+  "files": [
+    "lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PAINFUEG0/xenoServer.git"
+  },
   "devDependencies": {
     "@types/node": "^24.0.6",
     "@types/ws": "^8.18.1",
+    "tsup": "^8.5.0",
     "typescript": "^5.8.3"
   },
   "dependencies": {
     "ws": "^8.18.2"
-  }
+  },
+  "exports": {
+    ".": {
+      "require": {
+        "types": "./lib/index.d.ts",
+        "default": "./lib/index.js"
+      },
+      "import": {
+        "types": "./lib/index.d.mts",
+        "default": "./lib/index.mjs"
+      }
+    }
+  },
+  "main": "./lib/index.js",
+  "module": "./lib/index.mjs",
+  "types": "./lib/index.d.ts"
 }

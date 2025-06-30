@@ -1,5 +1,7 @@
+/lib
 /app
-/.envd:\Projects\Database\.vscode
+/.env
+*.tgz
 /storage
 logs.csv
 /node_modules
