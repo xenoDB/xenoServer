@@ -11,7 +11,7 @@ export class ThreadedFileWriter {
   }
 
   constructor() {
-    this.worker = new Worker(resolve(import.meta.dirname, "./worker.js"));
+    this.worker = new Worker(resolve(import.meta.dirname || __dirname, "./worker.mjs"));
     this.worker.on("error", (err) => console.error("FileWriter error:", err));
   }
 }

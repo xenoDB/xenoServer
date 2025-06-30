@@ -13,6 +13,7 @@ export default defineConfig({
   format: ["cjs", "esm"],
   experimentalDts: false,
   entry: ["src/index.ts"],
+  publicDir: "app/public",
   removeNodeProtocol: false,
   skipNodeModulesBundle: true
 });
