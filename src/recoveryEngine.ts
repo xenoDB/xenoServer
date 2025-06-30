@@ -1,6 +1,6 @@
 /** @format */
 
-import * as fs from "fs";
+import * as fs from "node:fs";
 import { CoreDatabase } from "./coreDatabase.js";
 import { ThreadedFileWriter } from "./threadedFileWriter.js";
 
