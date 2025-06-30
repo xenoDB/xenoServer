@@ -1,7 +1,9 @@
 {
   "name": "@xenodb/server",
   "version": "1.0.0",
-  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Blazingly fast, lightweight, and simple database server.",
   "license": "MIT",
   "author": "XenoDB",
