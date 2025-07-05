@@ -3,21 +3,62 @@
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { WebSocketServer } from "ws";
+import { createServer } from "node:https";
 import { CoreDatabase } from "./coreDatabase.js";
 
-import type { Payload } from "./types.js";
-import type { RawData, WebSocket } from "ws";
+import type { Server } from "node:http";
+import type { Payload, SSLOptions } from "./types.js";
+import type { RawData, WebSocket, ServerOptions } from "ws";
 
 export class DatabaseServer {
+  #server?: Server;
   #wss: WebSocketServer;
   #databases = new Map<string, CoreDatabase<unknown>>();
 
-  constructor(options: { port: number; auth: string }) {
-    this.#wss = new WebSocketServer({
-      port: options.port,
-      verifyClient: (info, callback) =>
-        info.req.headers["authorization"] === options.auth ? callback(true) : callback(false, 401, "Unauthorized")
-    });
+  constructor(options: { port: number; auth: string; ssl?: SSLOptions }) {
+    const verifyClient: NonNullable<ServerOptions["verifyClient"]> = (info, callback) =>
+      info.req.headers["authorization"] === options.auth ? callback(true) : callback(false, 401, "Unauthorized");
+
+    if (options.ssl) {
+      if (options.ssl.dhparam && !fs.existsSync(options.ssl.dhparam))
+        throw new Error(`No SSL DH parameter found at path : ${options.ssl.dhparam}`);
+
+      if (options.ssl.ca && typeof options.ssl.ca === "string" && !fs.existsSync(options.ssl.ca))
+        throw new Error(`No SSL CA found at path : ${options.ssl.ca}`);
+
+      if (!fs.existsSync(options.ssl.key)) throw new Error(`No SSL key found at path : ${options.ssl.key}`);
+
+      if (options.ssl.ca && Array.isArray(options.ssl.ca))
+        for (const ca of options.ssl.ca) if (!fs.existsSync(ca)) throw new Error(`No SSL CA found at path : ${ca}`);
+
+      if (!fs.existsSync(options.ssl.cert)) throw new Error(`No SSL certificate found at path : ${options.ssl.cert}`);
+
+      const sslConfig: Partial<SSLOptions> = {
+        key: fs.readFileSync(options.ssl.key).toString(),
+        cert: fs.readFileSync(options.ssl.cert).toString()
+      };
+
+      if (options.ssl.ca)
+        sslConfig.ca = Array.isArray(options.ssl.ca)
+          ? options.ssl.ca.map((ca) => fs.readFileSync(ca)).toString()
+          : fs.readFileSync(options.ssl.ca).toString();
+
+      if (options.ssl.ciphers) sslConfig.ciphers = options.ssl.ciphers;
+      if (options.ssl.passphrase) sslConfig.passphrase = options.ssl.passphrase;
+      if (options.ssl.requestCert) sslConfig.requestCert = options.ssl.requestCert;
+      if (options.ssl.secureProtocol) sslConfig.secureProtocol = options.ssl.secureProtocol;
+      if (options.ssl.honorCipherOrder) sslConfig.honorCipherOrder = options.ssl.honorCipherOrder;
+      if (options.ssl.dhparam) sslConfig.dhparam = fs.readFileSync(options.ssl.dhparam).toString();
+      if (options.ssl.rejectUnauthorized) sslConfig.rejectUnauthorized = options.ssl.rejectUnauthorized;
+
+      this.#server = createServer(sslConfig).listen(options.port);
+    }
+
+    this.#wss = new WebSocketServer(
+      this.#server ? { server: this.#server, verifyClient } : { port: options.port, verifyClient }
+    );
+
+    this.#wss.on("listening", async () => console.log(`WSS started on port ${options.port}`));
 
     this.#wss.on("connection", (ws, req) => {
       ws.on("error", (err) => console.error(JSON.stringify(err.stack)));
@@ -25,16 +66,15 @@ export class DatabaseServer {
       ws.on("close", () => console.log(`Connection closed from ${req.socket.remoteAddress}`));
       console.log(`Established a new connection established from ${req.socket.remoteAddress}`);
     });
-
-    this.#wss.on("listening", async () => console.log(`Server started on port ${options.port}`));
   }
 
   #validatePayload(payload: Payload) {
     if (!("path" in payload)) throw new Error("Missing path");
+    if (payload.path === ".") throw new Error("Invalid path !! Path cannot be '.'");
+    if (payload.path.includes("..")) throw new Error("Invalid path !! Path cannot contain '..'");
+
     if (!("method" in payload)) throw new Error("Missing method");
     if (!("requestId" in payload)) throw new Error("Missing requestId");
-
-    if (!payload.path || payload.path === "." || payload.path === "..") throw new Error("Invalid path");
 
     switch (payload.method) {
       case "ALL":
@@ -84,11 +124,7 @@ export class DatabaseServer {
       return ws.send(JSON.stringify({ requestId: PL.requestId, error: e.message }));
     }
 
-    PL.path = join(
-      "./",
-      "storage",
-      !PL.path || PL.path === "." || PL.path.includes("..") ? "( Uncategorized )" : PL.path
-    );
+    PL.path = join("./", "storage", PL.path);
 
     const db = this.#databases.get(PL.path) || this.#databases.set(PL.path, new CoreDatabase(PL.path)).get(PL.path)!;
 
@@ -112,10 +148,6 @@ export class DatabaseServer {
         ws.send(JSON.stringify({ requestId: PL.requestId, data: db.get(PL.key) }));
         break;
 
-      case "SET":
-        ws.send(JSON.stringify({ requestId: PL.requestId, data: db.set(PL.key, PL.value) }));
-        break;
-
       case "DELETE":
         ws.send(JSON.stringify({ requestId: PL.requestId, data: db.delete(PL.key) }));
         break;
@@ -130,6 +162,10 @@ export class DatabaseServer {
 
       case "DELETE_MANY":
         ws.send(JSON.stringify({ requestId: PL.requestId, data: db.deleteMany(PL.keys) }));
+        break;
+
+      case "SET":
+        ws.send(JSON.stringify({ requestId: PL.requestId, data: db.set(PL.key, PL.value) }));
         break;
     }
 

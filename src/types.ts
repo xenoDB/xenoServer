@@ -8,6 +8,19 @@ export interface BasePayload {
   requestId: string;
 }
 
+export interface SSLOptions {
+  key: string;
+  cert: string;
+  ciphers?: string;
+  dhparam?: string;
+  passphrase?: string;
+  requestCert?: boolean;
+  ca?: string | string[];
+  secureProtocol?: string;
+  honorCipherOrder?: boolean;
+  rejectUnauthorized?: boolean;
+}
+
 export type Payload<T = unknown> = Prettify<
   BasePayload &
     (
