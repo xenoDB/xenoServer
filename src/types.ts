@@ -24,7 +24,7 @@ export interface SSLOptions {
 export type Payload<T = unknown> = Prettify<
   BasePayload &
     (
-      | { method: "ALL" | "NUKE" }
+      | { method: "ALL" }
       | { method: "SET"; key: string; value: T }
       | { method: "GET" | "DELETE" | "HAS"; key: string }
       | { method: "GET_MANY" | "DELETE_MANY"; keys: string[] }
