@@ -18,12 +18,9 @@ export class RecoveryEngine<T> {
   }
 
   async run() {
-    if (!fs.existsSync(this.#logFile)) {
+    if (!fs.existsSync(this.#logFile))
       fs.writeFileSync(this.#logFile, "Timestamp,\tRequestId,\tMethod,\tKey,\tValue\t\n");
-      return console.log(`Skipping RE !!! ${this.#logFile} is N/A !!!`);
-    }
 
-    const start = Date.now();
     const requests = fs
       .readFileSync(this.#logFile, "utf-8")
       .trim()
@@ -37,8 +34,6 @@ export class RecoveryEngine<T> {
 
       method === "SET" ? this.#database.set(key!, JSON.parse(value!)) : this.#database.delete(key!);
     }
-
-    console.log(`RE completed running the last ${requests.length} requests in ${Date.now() - start}ms`, "success");
   }
 
   recordRequest(PL: Payload) {
