@@ -13,54 +13,49 @@ import type { SSLOptions } from "./types.js";
 export class DatabaseServer {
   onStdout = (data: string) => console.log(data);
 
-  get #ip() {
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces))
-      for (const iface of interfaces[name]!) if (iface.family === "IPv4" && !iface.internal) return iface.address;
-
-    return "localhost";
-  }
-
   constructor(options: { port: number; auth: string; ssl?: SSLOptions }) {
+    const { port, auth, ssl } = options;
+
     if (options.ssl && !(options.ssl.cert && options.ssl.key))
       throw new Error("If you decide to provide an SSL configuration, you must provide both a certificate and a key");
 
-    const sslConfig: Partial<SSLOptions> | undefined = options.ssl
-      ? {
-          ...options.ssl,
-          key: fs.readFileSync(options.ssl.key).toString(),
-          cert: fs.readFileSync(options.ssl.cert).toString(),
-          ca: options.ssl.ca
-            ? Array.isArray(options.ssl.ca)
-              ? options.ssl.ca.map((ca) => fs.readFileSync(ca)).toString()
-              : fs.readFileSync(options.ssl.ca).toString()
-            : undefined,
-          dhparam: options.ssl.dhparam ? fs.readFileSync(options.ssl.dhparam).toString() : undefined
-        }
-      : undefined;
+    let ip: string;
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces))
+      for (const iface of interfaces[name]!) if (iface.family === "IPv4" && !iface.internal) ip = iface.address;
 
-    const server = sslConfig ? createHttpsServer(sslConfig, RESTHandler) : createHttpServer(RESTHandler);
+    ip ||= "localhost";
+
+    const SSL: SSLOptions | null = ssl
+      ? {
+          ...ssl,
+          key: fs.readFileSync(ssl.key).toString(),
+          cert: fs.readFileSync(ssl.cert).toString(),
+          ca: ssl.ca
+            ? Array.isArray(ssl.ca)
+              ? ssl.ca.map((ca) => fs.readFileSync(ca)).toString()
+              : fs.readFileSync(ssl.ca).toString()
+            : undefined,
+          dhparam: ssl.dhparam ? fs.readFileSync(ssl.dhparam).toString() : undefined
+        }
+      : null;
+
+    const server = SSL ? createHttpsServer(SSL, RESTHandler) : createHttpServer(RESTHandler);
 
     server.listen(options.port, () =>
       this.onStdout(
-        `HTTP${sslConfig ? "S" : ""} server started on port ${options.port}` +
-          ` | ` +
-          `URI : http${sslConfig ? "s" : ""}://${this.#ip}:${options.port}/stats`
+        `HTTP${SSL ? "S" : ""} server started on port ${port} | URI : http${SSL ? "s" : ""}://${ip}:${port}/stats`
       )
     );
 
     const wss = new WebSocketServer({
       server: server,
       verifyClient: (info, callback) =>
-        info.req.headers["authorization"] === options.auth ? callback(true) : callback(false, 401, "Unauthorized")
+        info.req.headers["authorization"] === auth ? callback(true) : callback(false, 401, "Unauthorized")
     });
 
     wss.on("listening", async () =>
-      this.onStdout(
-        `WS${sslConfig ? "S" : ""} server started on port ${options.port} | URI : ${sslConfig ? "wss" : "ws"}://${
-          this.#ip
-        }:${options.port}`
-      )
+      this.onStdout(`WS${SSL ? "S" : ""} server started on port ${port} | URI : ${SSL ? "wss" : "ws"}://${ip}:${port}`)
     );
 
     wss.on("connection", (ws, req) => {
