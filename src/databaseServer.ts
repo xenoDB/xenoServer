@@ -72,31 +72,37 @@ export class DatabaseServer {
 
   get #ip() {
     const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-      for (const iface of interfaces[name]!) {
-        if (iface.family === "IPv4" && !iface.internal) {
-          return iface.address;
-        }
-      }
-    }
+    for (const name of Object.keys(interfaces))
+      for (const iface of interfaces[name]!) if (iface.family === "IPv4" && !iface.internal) return iface.address;
+
     return "localhost";
   }
 
   #handleRESTRequests(req: IncomingMessage, res: ServerResponse) {
-    if (req.url === "/stats" && req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(
-        JSON.stringify({
-          memoryUsage: Object.fromEntries(
-            Object.entries(process.memoryUsage()).map(([key, value]) => [key, `${value / (1024 * 1024)} MB`])
-          )
-        })
-      );
-      return;
+    switch (req.method) {
+      case "GET":
+        switch (req.url) {
+          case "/stats":
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                memoryUsage: Object.fromEntries(
+                  Object.entries(process.memoryUsage()).map(([key, value]) => [key, `${value / (1024 * 1024)} MB`])
+                )
+              })
+            );
+            break;
+          default:
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Not Found" }));
+            break;
+        }
+        break;
+      default:
+        res.writeHead(405, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Method Not Allowed" }));
+        break;
     }
-
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Not Found" }));
   }
 
   #validatePayload(payload: Payload) {
