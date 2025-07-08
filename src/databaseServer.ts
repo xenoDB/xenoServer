@@ -1,71 +1,102 @@
 /** @format */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import { join } from "node:path";
 import { WebSocketServer } from "ws";
-import { createServer } from "node:https";
 import { CoreDatabase } from "./coreDatabase.js";
+import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 
 import type { Server } from "node:http";
 import type { Payload, SSLOptions } from "./types.js";
 import type { RawData, WebSocket, ServerOptions } from "ws";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 export class DatabaseServer {
   #server?: Server;
   #wss: WebSocketServer;
+  #sslConfig?: SSLOptions;
   #databases = new Map<string, CoreDatabase<unknown>>();
 
   constructor(options: { port: number; auth: string; ssl?: SSLOptions }) {
     const verifyClient: NonNullable<ServerOptions["verifyClient"]> = (info, callback) =>
       info.req.headers["authorization"] === options.auth ? callback(true) : callback(false, 401, "Unauthorized");
 
-    if (options.ssl) {
-      if (options.ssl.dhparam && !fs.existsSync(options.ssl.dhparam))
-        throw new Error(`No SSL DH parameter found at path : ${options.ssl.dhparam}`);
+    if (options.ssl && !(options.ssl.cert && options.ssl.key))
+      throw new Error("If you decide to provide an SSL configuration, you must provide both a certificate and a key");
 
-      if (options.ssl.ca && typeof options.ssl.ca === "string" && !fs.existsSync(options.ssl.ca))
-        throw new Error(`No SSL CA found at path : ${options.ssl.ca}`);
+    this.#sslConfig = options.ssl
+      ? {
+          ...options.ssl,
+          key: fs.readFileSync(options.ssl.key).toString(),
+          cert: fs.readFileSync(options.ssl.cert).toString(),
+          ca: options.ssl.ca
+            ? Array.isArray(options.ssl.ca)
+              ? options.ssl.ca.map((ca) => fs.readFileSync(ca)).toString()
+              : fs.readFileSync(options.ssl.ca).toString()
+            : undefined,
+          dhparam: options.ssl.dhparam ? fs.readFileSync(options.ssl.dhparam).toString() : undefined
+        }
+      : undefined;
 
-      if (!fs.existsSync(options.ssl.key)) throw new Error(`No SSL key found at path : ${options.ssl.key}`);
+    this.#server = this.#sslConfig
+      ? createHttpsServer(this.#sslConfig, this.#handleRESTRequests.bind(this))
+      : createHttpServer(this.#handleRESTRequests.bind(this));
 
-      if (options.ssl.ca && Array.isArray(options.ssl.ca))
-        for (const ca of options.ssl.ca) if (!fs.existsSync(ca)) throw new Error(`No SSL CA found at path : ${ca}`);
-
-      if (!fs.existsSync(options.ssl.cert)) throw new Error(`No SSL certificate found at path : ${options.ssl.cert}`);
-
-      const sslConfig: Partial<SSLOptions> = {
-        key: fs.readFileSync(options.ssl.key).toString(),
-        cert: fs.readFileSync(options.ssl.cert).toString()
-      };
-
-      if (options.ssl.ca)
-        sslConfig.ca = Array.isArray(options.ssl.ca)
-          ? options.ssl.ca.map((ca) => fs.readFileSync(ca)).toString()
-          : fs.readFileSync(options.ssl.ca).toString();
-
-      if (options.ssl.ciphers) sslConfig.ciphers = options.ssl.ciphers;
-      if (options.ssl.passphrase) sslConfig.passphrase = options.ssl.passphrase;
-      if (options.ssl.requestCert) sslConfig.requestCert = options.ssl.requestCert;
-      if (options.ssl.secureProtocol) sslConfig.secureProtocol = options.ssl.secureProtocol;
-      if (options.ssl.honorCipherOrder) sslConfig.honorCipherOrder = options.ssl.honorCipherOrder;
-      if (options.ssl.dhparam) sslConfig.dhparam = fs.readFileSync(options.ssl.dhparam).toString();
-      if (options.ssl.rejectUnauthorized) sslConfig.rejectUnauthorized = options.ssl.rejectUnauthorized;
-
-      this.#server = createServer(sslConfig).listen(options.port);
-    }
-
-    this.#wss = new WebSocketServer(
-      this.#server ? { server: this.#server, verifyClient } : { port: options.port, verifyClient }
+    this.#server.listen(options.port, () =>
+      console.log(
+        `HTTP${this.#sslConfig ? "S" : ""} server started on port ${options.port}` +
+          ` | ` +
+          `URI : http${this.#sslConfig ? "s" : ""}://${this.#ip}:${options.port}/stats`
+      )
     );
 
-    this.#wss.on("listening", async () => console.log(`WSS started on port ${options.port}`));
+    this.#wss = new WebSocketServer({ server: this.#server, verifyClient });
+
+    this.#wss.on("listening", async () =>
+      console.log(
+        `WS${this.#sslConfig ? "S" : ""} server started on port ${options.port} | URI : ${
+          this.#sslConfig ? "wss" : "ws"
+        }://${this.#ip}:${options.port}`
+      )
+    );
 
     this.#wss.on("connection", (ws, req) => {
       ws.on("error", (err) => console.error(JSON.stringify(err.stack)));
-      ws.on("message", async (message) => this.#handleMessage(ws, message));
+      ws.on("message", async (message) => this.#handleWebsocketMessages(ws, message));
       ws.on("close", () => console.log(`Connection closed from ${req.socket.remoteAddress}`));
       console.log(`Established a new connection established from ${req.socket.remoteAddress}`);
     });
+  }
+
+  get #ip() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]!) {
+        if (iface.family === "IPv4" && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+    return "localhost";
+  }
+
+  #handleRESTRequests(req: IncomingMessage, res: ServerResponse) {
+    if (req.url === "/stats" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          memoryUsage: Object.fromEntries(
+            Object.entries(process.memoryUsage()).map(([key, value]) => [key, `${value / (1024 * 1024)} MB`])
+          )
+        })
+      );
+      return;
+    }
+
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not Found" }));
   }
 
   #validatePayload(payload: Payload) {
@@ -114,7 +145,7 @@ export class DatabaseServer {
     }
   }
 
-  async #handleMessage(ws: WebSocket, message: RawData) {
+  async #handleWebsocketMessages(ws: WebSocket, message: RawData) {
     const PL: Payload = JSON.parse(message.toString());
 
     try {
