@@ -3,8 +3,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { WebSocketServer } from "ws";
-import { WSHandler } from "./helpers/WS.js";
-import { RESTHandler } from "./helpers/REST.js";
+import { WSHandler } from "./handlers/WS.js";
+import { RESTHandler } from "./handlers/REST.js";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 

@@ -2,7 +2,7 @@
 
 import { join } from "path";
 import { CoreDatabase } from "../coreDatabase";
-import { validatePayload } from "./validatePayload";
+import { validatePayload } from "../helpers/validatePayload";
 
 import type { Payload } from "../types";
 import type { WebSocket, RawData } from "ws";
