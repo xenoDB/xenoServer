@@ -8,7 +8,7 @@ import type { Payload } from "./types.js";
 
 export class RecoveryEngine<T> {
   #logFile: string;
-  #requestCount = 250;
+  #requestCount = 500;
   #database: CoreDatabase<T>;
   #threadedFileWriter = new ThreadedFileWriter();
 
@@ -19,21 +19,43 @@ export class RecoveryEngine<T> {
 
   async run() {
     if (!fs.existsSync(this.#logFile))
-      fs.writeFileSync(this.#logFile, "Timestamp,\tRequestId,\tMethod,\tKey,\tValue\t\n");
+      return fs.writeFileSync(this.#logFile, "Timestamp,\tRequestId,\tMethod,\tKey,\tValue\t\n");
 
     const requests = fs
       .readFileSync(this.#logFile, "utf-8")
       .trim()
       .split("\n")
       .splice(0)
-      .filter((req) => req.includes("\tSET,") || req.includes("\tDELETE,"))
-      .slice(-this.#requestCount);
+      .map((line) => {
+        const _ = line.split(",\t");
+        return {
+          timestamp: _[0]!,
+          requestId: _[1]!,
+          method: _[2]!,
+          key: _[3],
+          value: _[4]
+        };
+      });
 
-    for (const request of requests) {
-      const [, , , method, key, value] = request.split(",\t");
+    requests
+      .filter((req) => req.method === "SET" || req.method === "DELETE")
+      .slice(-this.#requestCount)
+      .forEach((request) => {
+        if (request.method === "SET") this.#database.set(request.key!, JSON.parse(request.value!));
+        else if (request.method === "DELETE") this.#database.delete(request.key!);
+      });
 
-      method === "SET" ? this.#database.set(key!, JSON.parse(value!)) : this.#database.delete(key!);
-    }
+    const threshold = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    fs.writeFileSync(
+      this.#logFile,
+      "Timestamp,\tRequestId,\tMethod,\tKey,\tValue\t\n" +
+        requests
+          .filter((req) => parseInt(req.timestamp) >= threshold)
+          .map((req) => `${req.timestamp},\t${req.requestId},\t${req.method},\t${req.key || ""},\t${req.value || ""}`)
+          .join("\n") +
+        "\n"
+    );
   }
 
   recordRequest(PL: Payload) {
@@ -46,15 +68,9 @@ export class RecoveryEngine<T> {
         break;
 
       case "GET":
-        logs.push(prefix + `GET,\t${PL.key}`);
-        break;
-
+      case "HAS":
       case "DELETE":
-        logs.push(prefix + `DELETE,\t${PL.key}`);
-        break;
-
-      case "GET_MANY":
-        for (const key of PL.keys) logs.push(prefix + `GET,\t${key}`);
+        logs.push(prefix + `${PL.method},\t${PL.key}`);
         break;
 
       case "SET_MANY":
@@ -62,12 +78,13 @@ export class RecoveryEngine<T> {
           logs.push(prefix + `SET,\t${key},\t${JSON.stringify(value)}`);
         break;
 
-      case "DELETE_MANY":
-        for (const key of PL.keys) logs.push(prefix + `DELETE,\t${key}`);
-        break;
-
       case "SET":
         logs.push(prefix + `SET,\t${PL.key},\t${JSON.stringify(PL.value)}`);
+        break;
+
+      case "GET_MANY":
+      case "DELETE_MANY":
+        for (const key of PL.keys) logs.push(prefix + `${PL.method.split("_")[0]},\t${key}`);
         break;
     }
 
