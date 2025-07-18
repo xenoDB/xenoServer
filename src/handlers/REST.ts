@@ -3,6 +3,10 @@
 import type { IncomingMessage, ServerResponse } from "http";
 
 export function RESTHandler(req: IncomingMessage, res: ServerResponse) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
   switch (req.method) {
     case "GET":
       switch (req.url) {
@@ -16,12 +20,14 @@ export function RESTHandler(req: IncomingMessage, res: ServerResponse) {
             })
           );
           break;
+
         default:
           res.writeHead(404, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Not Found" }));
           break;
       }
       break;
+
     default:
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Method Not Allowed" }));
