@@ -44,7 +44,7 @@ export class DatabaseServer {
 
     server.listen(options.port, () =>
       this.onStdout(
-        `HTTP${SSL ? "S" : ""} server started on port ${port} | URI : http${SSL ? "s" : ""}://${ip}:${port}/stats`
+        `HTTP${SSL ? "S" : ""} server started on port ${port} | URI : http${SSL ? "s" : ""}://${ip}:${port}`
       )
     );
 
