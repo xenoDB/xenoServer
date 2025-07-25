@@ -96,7 +96,7 @@ export class CoreDatabase<T> {
   #debouncedWrite() {
     this.#debounceCount++;
 
-    if (this.#debounceCount >= this.#maxDebounceCount) return ((this.#debounceCount = 0), this.#write());
+    if (this.#debounceCount >= this.#maxDebounceCount) return (this.#debounceCount = 0), this.#write();
 
     this.#timer?.refresh();
 
@@ -164,12 +164,49 @@ export class CoreDatabase<T> {
   }
 
   all(): { [K: string]: T } {
-    return this.#cache.values().reduce(
-      (prev, curr) => {
-        for (const [key, value] of Object.entries(curr)) prev[key] = value;
-        return prev;
-      },
-      {} as { [K: string]: T }
-    );
+    return this.#cache.values().reduce((prev, curr) => {
+      for (const [key, value] of Object.entries(curr)) prev[key] = value;
+      return prev;
+    }, {} as { [K: string]: T });
   }
+
+  shift = <ShiftMethod<T>>((key: string) => {
+    const array = (this.get(key) || []) as unknown;
+    if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
+    const shifted = array.shift();
+    this.set(key, array as T);
+    return { length: array.length, element: shifted };
+  });
+
+  pop = <PopMethod<T>>((key: string) => {
+    const array = (this.get(key) || []) as unknown;
+    if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
+    const popped = array.pop();
+    this.set(key, array as T);
+    return { length: array.length, element: popped };
+  });
+
+  push = <PushMethod<T>>((key: string, dataToPush: unknown) => {
+    const array = (this.get(key) || []) as any[];
+    if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
+    array.push(dataToPush);
+    this.set(key, <T>array);
+    return { length: array.length, element: dataToPush };
+  });
+
+  splice = <SpliceMethod<T>>((key: string, start: number, deleteCount?: number, ...items: any[]) => {
+    const array = this.get(key) as unknown;
+    if (!array) return false;
+    if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
+    array.splice(start, deleteCount || 1, ...items);
+    this.set(key, array as T);
+    return array;
+  });
 }
+
+type SpliceMethod<T> = T extends (infer U)[]
+  ? (key: string, start: number, deleteCount?: number, ...items: U[]) => T
+  : never;
+type PopMethod<T> = T extends (infer U)[] ? (key: string) => { length: number; element: U } : never;
+type ShiftMethod<T> = T extends (infer U)[] ? (key: string) => { length: number; element: U } : never;
+type PushMethod<T> = T extends (infer U)[] ? (key: string, dataToPush: U) => { length: number; element: U } : never;
