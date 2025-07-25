@@ -1,6 +1,7 @@
 /** @format */
 
 import type { Payload } from "./types.js";
+import { CoreDatabase } from "./coreDatabase.js";
 import { DatabaseServer } from "./databaseServer.js";
 
-export { DatabaseServer, type Payload };
+export { DatabaseServer, CoreDatabase, type Payload };
