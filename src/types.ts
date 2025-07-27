@@ -29,5 +29,10 @@ export type Payload<T = unknown> = Prettify<
       | { method: "GET" | "DELETE" | "HAS"; key: string }
       | { method: "GET_MANY" | "DELETE_MANY"; keys: string[] }
       | { method: "SET_MANY"; data: { key: string; value: T }[] }
+      | { method: "SHIFT"; key: string }
+      | { method: "UNSHIFT"; key: string; data: T }
+      | { method: "POP"; key: string }
+      | { method: "PUSH"; key: string; data: T }
+      | { method: "SLICE"; key: string; start: number; end?: number }
     )
 >;

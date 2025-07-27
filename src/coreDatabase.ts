@@ -178,6 +178,14 @@ export class CoreDatabase<T> {
     return { length: array.length, element: shifted };
   });
 
+  unshift = <UnshiftMethod<T>>((key: string, dataToPush: unknown) => {
+    const array = (this.get(key) || []) as any[];
+    if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
+    array.unshift(dataToPush);
+    this.set(key, <T>array);
+    return { length: array.length, element: dataToPush };
+  });
+
   pop = <PopMethod<T>>((key: string) => {
     const array = (this.get(key) || []) as unknown;
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
@@ -194,19 +202,16 @@ export class CoreDatabase<T> {
     return { length: array.length, element: dataToPush };
   });
 
-  splice = <SpliceMethod<T>>((key: string, start: number, deleteCount?: number, ...items: any[]) => {
+  slice = <ScliceMethod<T>>((key: string, start: number, end?: number) => {
     const array = this.get(key) as unknown;
-    if (!array) return false;
+    if (!array) return null;
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
-    array.splice(start, deleteCount || 1, ...items);
-    this.set(key, array as T);
-    return array;
+    return array.slice(start, end);
   });
 }
 
-type SpliceMethod<T> = T extends (infer U)[]
-  ? (key: string, start: number, deleteCount?: number, ...items: U[]) => T
-  : never;
 type PopMethod<T> = T extends (infer U)[] ? (key: string) => { length: number; element: U } : never;
 type ShiftMethod<T> = T extends (infer U)[] ? (key: string) => { length: number; element: U } : never;
+type ScliceMethod<T> = T extends (infer U)[] ? (key: string, start: number, end?: number) => U[] | null : never;
 type PushMethod<T> = T extends (infer U)[] ? (key: string, dataToPush: U) => { length: number; element: U } : never;
+type UnshiftMethod<T> = T extends (infer U)[] ? (key: string, dataToPush: U) => { length: number; element: U } : never;
