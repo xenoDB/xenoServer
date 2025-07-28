@@ -2,7 +2,6 @@
 
 import { join } from "path";
 import { CoreDatabase } from "../coreDatabase";
-import { validatePayload } from "../helpers/validatePayload";
 
 import type { Payload } from "../types";
 import type { WebSocket, RawData } from "ws";
@@ -12,47 +11,70 @@ const databases = new Map<string, CoreDatabase<unknown>>();
 export async function WSHandler(ws: WebSocket, message: RawData) {
   const PL: Payload = JSON.parse(message.toString());
 
-  try {
-    validatePayload(PL);
-  } catch (e) {
-    return ws.send(JSON.stringify({ requestId: PL.requestId, error: e.message }));
-  }
-
   PL.path = join("./", "storage", PL.path);
 
   const db = databases.get(PL.path) || databases.set(PL.path, new CoreDatabase(PL.path)).get(PL.path)!;
 
+  function wrapWSResponse<R>(fn: () => R) {
+    try {
+      const result = fn();
+      ws.send(JSON.stringify({ requestId: PL.requestId, data: result }));
+    } catch (error) {
+      ws.send(JSON.stringify({ requestId: PL.requestId, error }));
+    }
+  }
+
   switch (PL.method) {
     case "ALL":
-      ws.send(JSON.stringify({ requestId: PL.requestId, data: db.all() }));
+      wrapWSResponse(() => db.all());
       break;
 
     case "HAS":
-      ws.send(JSON.stringify({ requestId: PL.requestId, data: db.has(PL.key) }));
+      wrapWSResponse(() => db.has(PL.key));
       break;
 
     case "GET":
-      ws.send(JSON.stringify({ requestId: PL.requestId, data: db.get(PL.key) }));
+      wrapWSResponse(() => db.get(PL.key));
       break;
 
     case "DELETE":
-      ws.send(JSON.stringify({ requestId: PL.requestId, data: db.delete(PL.key) }));
+      wrapWSResponse(() => db.delete(PL.key));
       break;
 
     case "GET_MANY":
-      ws.send(JSON.stringify({ requestId: PL.requestId, data: db.getMany(PL.keys) }));
+      wrapWSResponse(() => db.getMany(PL.keys));
       break;
 
     case "SET_MANY":
-      ws.send(JSON.stringify({ requestId: PL.requestId, data: db.setMany(PL.data) }));
+      wrapWSResponse(() => db.setMany(PL.data));
       break;
 
     case "DELETE_MANY":
-      ws.send(JSON.stringify({ requestId: PL.requestId, data: db.deleteMany(PL.keys) }));
+      wrapWSResponse(() => db.deleteMany(PL.keys));
       break;
 
     case "SET":
-      ws.send(JSON.stringify({ requestId: PL.requestId, data: db.set(PL.key, PL.value) }));
+      wrapWSResponse(() => db.set(PL.key, PL.value));
+      break;
+
+    case "POP":
+      wrapWSResponse(() => (<CoreDatabase<any[]>>db).pop(PL.key));
+      break;
+
+    case "SHIFT":
+      wrapWSResponse(() => (<CoreDatabase<any[]>>db).shift(PL.key));
+      break;
+
+    case "PUSH":
+      wrapWSResponse(() => (<CoreDatabase<any[]>>db).push(PL.key, PL.value));
+      break;
+
+    case "UNSHIFT":
+      wrapWSResponse(() => (<CoreDatabase<any[]>>db).unshift(PL.key, PL.value));
+      break;
+
+    case "SLICE":
+      wrapWSResponse(() => (<CoreDatabase<any[]>>db).slice(PL.key, PL.start, PL.end));
       break;
   }
 
