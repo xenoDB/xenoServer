@@ -98,7 +98,7 @@ export class CoreDatabase<T> {
   #debouncedWrite() {
     this.#debounceCount++;
 
-    if (this.#debounceCount >= this.#maxDebounceCount) return (this.#debounceCount = 0), this.#write();
+    if (this.#debounceCount >= this.#maxDebounceCount) return ((this.#debounceCount = 0), this.#write());
 
     this.#timer?.refresh();
 
@@ -166,10 +166,13 @@ export class CoreDatabase<T> {
   }
 
   all(): { [K: string]: T } {
-    return this.#cache.values().reduce((prev, curr) => {
-      for (const [key, value] of Object.entries(curr)) prev[key] = value;
-      return prev;
-    }, {} as { [K: string]: T });
+    return this.#cache.values().reduce(
+      (prev, curr) => {
+        for (const [key, value] of Object.entries(curr)) prev[key] = value;
+        return prev;
+      },
+      {} as { [K: string]: T }
+    );
   }
 
   shift = <Types.ShiftMethod<T>>((key: string) => {

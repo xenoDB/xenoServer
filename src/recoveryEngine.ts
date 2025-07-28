@@ -1,10 +1,10 @@
 /** @format */
 
 import * as fs from "node:fs";
-import { CoreDatabase } from "./coreDatabase.js";
 import { ThreadedFileWriter } from "./threadedFileWriter.js";
 
 import type { Payload } from "./types.js";
+import type { CoreDatabase } from "./coreDatabase.js";
 
 export class RecoveryEngine<T> {
   #logFile: string;
