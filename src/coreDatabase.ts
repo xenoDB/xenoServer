@@ -3,6 +3,8 @@
 import * as fs from "node:fs";
 import { RecoveryEngine } from "./recoveryEngine.js";
 
+import type * as Types from "./types.js";
+
 export class CoreDatabase<T> {
   #maxKeysInFile = 100;
 
@@ -170,7 +172,7 @@ export class CoreDatabase<T> {
     }, {} as { [K: string]: T });
   }
 
-  shift = <ShiftMethod<T>>((key: string) => {
+  shift = <Types.ShiftMethod<T>>((key: string) => {
     const array = (this.get(key) || []) as unknown;
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     const shifted = array.shift();
@@ -178,7 +180,7 @@ export class CoreDatabase<T> {
     return { length: array.length, element: shifted };
   });
 
-  unshift = <UnshiftMethod<T>>((key: string, dataToPush: unknown) => {
+  unshift = <Types.UnshiftMethod<T>>((key: string, dataToPush: unknown) => {
     const array = (this.get(key) || []) as any[];
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     array.unshift(dataToPush);
@@ -186,7 +188,7 @@ export class CoreDatabase<T> {
     return { length: array.length, element: dataToPush };
   });
 
-  pop = <PopMethod<T>>((key: string) => {
+  pop = <Types.PopMethod<T>>((key: string) => {
     const array = (this.get(key) || []) as unknown;
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     const popped = array.pop();
@@ -194,7 +196,7 @@ export class CoreDatabase<T> {
     return { length: array.length, element: popped };
   });
 
-  push = <PushMethod<T>>((key: string, dataToPush: unknown) => {
+  push = <Types.PushMethod<T>>((key: string, dataToPush: unknown) => {
     const array = (this.get(key) || []) as any[];
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     array.push(dataToPush);
@@ -202,16 +204,10 @@ export class CoreDatabase<T> {
     return { length: array.length, element: dataToPush };
   });
 
-  slice = <ScliceMethod<T>>((key: string, start: number, end?: number) => {
+  slice = <Types.SliceMethod<T>>((key: string, start: number, end?: number) => {
     const array = this.get(key) as unknown;
     if (!array) return null;
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     return array.slice(start, end);
   });
 }
-
-type PopMethod<T> = T extends (infer U)[] ? (key: string) => { length: number; element: U } : never;
-type ShiftMethod<T> = T extends (infer U)[] ? (key: string) => { length: number; element: U } : never;
-type ScliceMethod<T> = T extends (infer U)[] ? (key: string, start: number, end?: number) => U[] | null : never;
-type PushMethod<T> = T extends (infer U)[] ? (key: string, dataToPush: U) => { length: number; element: U } : never;
-type UnshiftMethod<T> = T extends (infer U)[] ? (key: string, dataToPush: U) => { length: number; element: U } : never;

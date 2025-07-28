@@ -41,3 +41,23 @@ export type Payload<T = unknown> = Prettify<
       | { method: "SLICE"; key: string; start: number; end?: number }
     )
 >;
+
+export type ArrayElement<T> = T extends (infer U)[] ? U : never;
+
+export type ArrayMethodResult<T> = { length: number; element: ArrayElement<T> };
+
+export type PushMethod<T> = T extends any[]
+  ? (key: string, dataToPush: ArrayElement<T>) => ArrayMethodResult<T>
+  : never;
+
+export type UnshiftMethod<T> = T extends any[]
+  ? (key: string, dataToPush: ArrayElement<T>) => ArrayMethodResult<T>
+  : never;
+
+export type SliceMethod<T> = T extends any[]
+  ? (key: string, start: number, end?: number) => ArrayElement<T>[] | null
+  : never;
+
+export type PopMethod<T> = T extends any[] ? (key: string) => ArrayMethodResult<T> : never;
+
+export type ShiftMethod<T> = T extends any[] ? (key: string) => ArrayMethodResult<T> : never;
