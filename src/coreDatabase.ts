@@ -120,7 +120,7 @@ export class CoreDatabase<T> {
     return keys.map((key) => this.get(key));
   }
 
-  set(key: string, value: T): T {
+  set(key: string, value: T, isInvokerInternal = false): T {
     const res = this.#searchIndexForKey(key);
 
     const file = res ? res.fileName : this.#getSuitableFile();
@@ -129,7 +129,7 @@ export class CoreDatabase<T> {
 
     const data = this.#cache.get(file) ?? this.#cache.set(file, {}).get(file)!;
 
-    if (data[key] == value) return value;
+    if (!isInvokerInternal) if (data[key] == value) return value;
 
     data[key] = value;
 
@@ -179,7 +179,7 @@ export class CoreDatabase<T> {
     const array = (this.get(key) || []) as unknown;
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     const shifted = array.shift();
-    this.set(key, array as T);
+    this.set(key, array as T, true);
     return { length: array.length, element: shifted };
   });
 
@@ -187,7 +187,7 @@ export class CoreDatabase<T> {
     const array = (this.get(key) || []) as any[];
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     array.unshift(dataToPush);
-    this.set(key, <T>array);
+    this.set(key, <T>array, true);
     return { length: array.length, element: dataToPush };
   });
 
@@ -195,7 +195,7 @@ export class CoreDatabase<T> {
     const array = (this.get(key) || []) as unknown;
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     const popped = array.pop();
-    this.set(key, array as T);
+    this.set(key, array as T, true);
     return { length: array.length, element: popped };
   });
 
@@ -203,7 +203,7 @@ export class CoreDatabase<T> {
     const array = (this.get(key) || []) as any[];
     if (!Array.isArray(array)) throw new Error("Stored value is not an array.");
     array.push(dataToPush);
-    this.set(key, <T>array);
+    this.set(key, <T>array, true);
     return { length: array.length, element: dataToPush };
   });
 
