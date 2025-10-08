@@ -66,8 +66,6 @@ export class RecoveryEngine<T> {
       case "ALL":
         logs.push(prefix + `ALL`);
         break;
-
-      case "GET":
       case "HAS":
       case "DELETE":
         logs.push(prefix + `${PL.method},\t${PL.key}`);
@@ -82,9 +80,8 @@ export class RecoveryEngine<T> {
         logs.push(prefix + `SET,\t${PL.key},\t${JSON.stringify(PL.value)}`);
         break;
 
-      case "GET_MANY":
       case "DELETE_MANY":
-        for (const key of PL.keys) logs.push(prefix + `${PL.method.split("_")[0]},\t${key}`);
+        for (const key of PL.keys) logs.push(prefix + `DELETE,\t${key}`);
         break;
     }
 
