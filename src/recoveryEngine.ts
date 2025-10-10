@@ -67,7 +67,6 @@ export class RecoveryEngine<T> {
         logs.push(prefix + `ALL`);
         break;
 
-      case "GET":
       case "HAS":
       case "DELETE":
         logs.push(prefix + `${PL.method},\t${PL.key}`);
