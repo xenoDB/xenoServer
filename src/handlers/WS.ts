@@ -77,6 +77,4 @@ export async function WSHandler(ws: WebSocket, message: RawData) {
       wrapWSResponse(() => (<CoreDatabase<any[]>>db).slice(PL.key, PL.start, PL.end));
       break;
   }
-
-  db.recoveryEngine.recordRequest(PL);
 }

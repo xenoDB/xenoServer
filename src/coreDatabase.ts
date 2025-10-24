@@ -1,7 +1,6 @@
 /** @format */
 
 import * as fs from "node:fs";
-import { RecoveryEngine } from "./recoveryEngine.js";
 
 import type * as Types from "./types.js";
 
@@ -17,7 +16,6 @@ export class CoreDatabase<T> {
 
   #path: string;
   #timer?: NodeJS.Timeout;
-  #recoveryEngine: RecoveryEngine<T>;
   #index: { [fileName: string]: string[] };
 
   #cache = new Map<string, { [key: string]: T }>();
@@ -26,13 +24,8 @@ export class CoreDatabase<T> {
     return this.#path;
   }
 
-  get recoveryEngine() {
-    return this.#recoveryEngine;
-  }
-
   constructor(path: string) {
     this.#path = path;
-    this.#recoveryEngine = new RecoveryEngine(this);
 
     if (!fs.existsSync(this.#path)) fs.mkdirSync(this.#path, { recursive: true });
 
@@ -42,8 +35,6 @@ export class CoreDatabase<T> {
 
     for (const [fileName] of Object.entries(this.#index))
       this.#cache.set(fileName, JSON.parse(fs.readFileSync(`${this.#path}/${fileName}`, "utf-8")));
-
-    this.#recoveryEngine.run();
   }
 
   // ----------------------------------------------- Private Helper Functions -----------------------------------------------
@@ -98,7 +89,7 @@ export class CoreDatabase<T> {
   #debouncedWrite() {
     this.#debounceCount++;
 
-    if (this.#debounceCount >= this.#maxDebounceCount) return ((this.#debounceCount = 0), this.#write());
+    if (this.#debounceCount >= this.#maxDebounceCount) return (this.#debounceCount = 0), this.#write();
 
     this.#timer?.refresh();
 
@@ -166,13 +157,10 @@ export class CoreDatabase<T> {
   }
 
   all(): { [K: string]: T } {
-    return this.#cache.values().reduce(
-      (prev, curr) => {
-        for (const [key, value] of Object.entries(curr)) prev[key] = value;
-        return prev;
-      },
-      {} as { [K: string]: T }
-    );
+    return this.#cache.values().reduce((prev, curr) => {
+      for (const [key, value] of Object.entries(curr)) prev[key] = value;
+      return prev;
+    }, {} as { [K: string]: T });
   }
 
   shift = <Types.ShiftMethod<T>>((key: string) => {
